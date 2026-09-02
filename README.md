@@ -8,12 +8,12 @@ and appointment booking platform.
 ```bash
 cd backend
 npm install
-cp .env.example .env      # then edit MONGO_URI / JWT_SECRET as needed
+cp .env.example .env      # then edit mongoURIAtlas or MONGO_URI / JWT_SECRET as needed
 ```
 
 You need a MongoDB instance. Either:
 - run one locally (`mongod`), and keep `MONGO_URI=mongodb://127.0.0.1:27017/groombook`, or
-- use a free MongoDB Atlas cluster and paste its connection string into `.env`.
+- use a free MongoDB Atlas cluster and paste its connection string into `mongoURIAtlas` in `.env`.
 
 ## Seed 100 salons of demo data
 

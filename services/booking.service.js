@@ -7,6 +7,19 @@ import ApiError from "../utils/apiError.js";
 import generateBookingNumber from "../utils/generateBookingNumber.js";
 import { ACTIVE_BOOKING_STATUSES, BOOKING_STATUS, PAYMENT_STATUS } from "../constants/bookingStatus.js";
 
+let transactionSupportPromise;
+
+async function supportsTransactions() {
+  if (!transactionSupportPromise) {
+    transactionSupportPromise = mongoose.connection.db
+      .admin()
+      .command({ hello: 1 })
+      .then((topology) => Boolean(topology.setName || topology.msg === "isdbgrid"));
+  }
+
+  return transactionSupportPromise;
+}
+
 /**
  * Creates a booking after re-validating availability. Getting available
  * slots earlier is not enough on its own — two customers can request the
@@ -38,59 +51,63 @@ export async function createBooking({ customerId, salonId, barberId, serviceIds,
   }
 
   const bookingEnd = new Date(bookingStart.getTime() + totalDuration * 60000);
+  const bookingData = {
+    bookingNumber: generateBookingNumber(),
+    customerId,
+    salonId,
+    barberId,
+    services: services.map((s) => ({
+      serviceId: s._id,
+      name: s.name,
+      price: s.price,
+      durationMinutes: s.durationMinutes,
+    })),
+    bookingFor,
+    startTime: bookingStart,
+    endTime: bookingEnd,
+    totalDurationMinutes: totalDuration,
+    subtotal,
+    discountAmount: 0,
+    totalAmount: subtotal,
+    bookingStatus: BOOKING_STATUS.PENDING,
+    paymentStatus: PAYMENT_STATUS.PENDING,
+    paymentMethod: paymentMethod || "PAY_AT_SALON",
+  };
 
-  const session = await mongoose.startSession();
-
-  try {
-    let booking;
-
-    await session.withTransaction(async () => {
-      // Re-check overlap inside the transaction, right before writing.
-      const conflict = await Booking.findOne({
-        barberId,
-        bookingStatus: { $in: ACTIVE_BOOKING_STATUSES },
-        startTime: { $lt: bookingEnd },
-        endTime: { $gt: bookingStart },
-      }).session(session);
-
-      if (conflict) {
-        throw new ApiError(409, "This slot was just booked. Please select another slot.");
-      }
-
-      const [created] = await Booking.create(
-        [
-          {
-            bookingNumber: generateBookingNumber(),
-            customerId,
-            salonId,
-            barberId,
-            services: services.map((s) => ({
-              serviceId: s._id,
-              name: s.name,
-              price: s.price,
-              durationMinutes: s.durationMinutes,
-            })),
-            bookingFor,
-            startTime: bookingStart,
-            endTime: bookingEnd,
-            totalDurationMinutes: totalDuration,
-            subtotal,
-            discountAmount: 0,
-            totalAmount: subtotal,
-            bookingStatus: BOOKING_STATUS.PENDING,
-            paymentStatus: PAYMENT_STATUS.PENDING,
-            paymentMethod: paymentMethod || "PAY_AT_SALON",
-          },
-        ],
-        { session }
-      );
-
-      booking = created;
+  const createIfAvailable = async (session) => {
+    const conflictQuery = Booking.findOne({
+      barberId,
+      bookingStatus: { $in: ACTIVE_BOOKING_STATUSES },
+      startTime: { $lt: bookingEnd },
+      endTime: { $gt: bookingStart },
     });
 
+    if (session) conflictQuery.session(session);
+
+    const conflict = await conflictQuery;
+    if (conflict) {
+      throw new ApiError(409, "This slot was just booked. Please select another slot.");
+    }
+
+    if (!session) return Booking.create(bookingData);
+
+    const [booking] = await Booking.create([bookingData], { session });
+    return booking;
+  };
+
+  if (!(await supportsTransactions())) {
+    return createIfAvailable();
+  }
+
+  const session = await mongoose.startSession();
+  try {
+    let booking;
+    await session.withTransaction(async () => {
+      booking = await createIfAvailable(session);
+    });
     return booking;
   } finally {
-    session.endSession();
+    await session.endSession();
   }
 }
 

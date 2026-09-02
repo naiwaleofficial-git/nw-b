@@ -2,10 +2,10 @@ import mongoose from "mongoose";
 
 export async function connectDB() {
   try {
-    const uri = process.env.MONGO_URI;
+    const uri = process.env.MONGO_URI || process.env.mongoURIAtlas;
 
     if (!uri) {
-      throw new Error("MONGO_URI is not defined in .env");
+      throw new Error("mongoURIAtlas or MONGO_URI is not defined in .env");
     }
 
     const conn = await mongoose.connect(uri);
