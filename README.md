@@ -15,6 +15,8 @@ You need a MongoDB instance. Either:
 - run one locally (`mongod`), and keep `MONGO_URI=mongodb://127.0.0.1:27017/groombook`, or
 - use a free MongoDB Atlas cluster and paste its connection string into `mongoURIAtlas` in `.env`.
 
+If both `mongoURIAtlas` and `MONGO_URI` are set, the app uses `mongoURIAtlas`.
+
 ## Seed 100 salons of demo data
 
 ```bash
