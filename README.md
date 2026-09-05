@@ -31,6 +31,16 @@ Demo logins printed at the end of the seed script:
 
 ## Run
 
+The API requires `JWT_SECRET` and checks it before connecting to the database.
+Local `.env` loading works even when the server is launched from the repository root.
+For a hosted backend, set `JWT_SECRET` in that backend service's environment settings
+and restart/redeploy it. A local `.env` does not configure the deployed service.
+Generate a private value with `node -e "console.log(require('node:crypto').randomBytes(48).toString('hex'))"`.
+Keep it stable across restarts and instances; never put it in frontend/Vite variables.
+The login error `secretOrPrivateKey must have a value` means this backend setting is missing.
+
+Run authentication configuration checks with `node --test config/env.test.js` from `backend`.
+
 ```bash
 npm run dev     # nodemon, http://localhost:5000
 npm start       # plain node

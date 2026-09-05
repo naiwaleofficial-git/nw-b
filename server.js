@@ -1,4 +1,4 @@
-import "dotenv/config";
+import { validateAuthConfig } from "./config/env.js";
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
@@ -10,6 +10,7 @@ import apiRoutes from "./routes/index.js";
 import { errorMiddleware, notFoundMiddleware } from "./middleware/error.middleware.js";
 
 const app = express();
+validateAuthConfig();
 
 // --- Database ---
 await connectDB();
