@@ -1,4 +1,5 @@
 import express from "express";
+import notificationRoutes from './notification.routes.js';
 import authRoutes from "./auth.routes.js";
 import salonRoutes from "./salon.routes.js";
 import barberRoutes from "./barber.routes.js";
@@ -9,6 +10,7 @@ import favoriteRoutes from "./favorite.routes.js";
 import adminRoutes from "./admin.routes.js";
 
 const router = express.Router();
+router.use('/notifications', notificationRoutes);
 
 router.use("/auth", authRoutes);
 router.use("/salons", salonRoutes);

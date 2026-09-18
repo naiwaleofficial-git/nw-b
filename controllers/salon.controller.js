@@ -13,6 +13,10 @@ export const listSalons = asyncHandler(async (req, res) => {
   const { city, category, minRating, priceLevel, service, q, page = 1, limit = 20 } = req.query;
 
   const filter = { isActive: true, isApproved: true };
+  if (req.query.area) {
+    const area = new RegExp(escapeRegex(String(req.query.area).trim()), 'i');
+    filter.$or = [{ 'address.street': area }, { 'address.fullAddress': area }, { 'address.landmark': area }, { 'address.district': area }];
+  }
 
   if (city) filter["address.city"] = new RegExp(`^${escapeRegex(String(city).trim())}$`, "i");
   if (category) filter.category = category;
@@ -96,7 +100,8 @@ export const updateSalon = asyncHandler(async (req, res) => {
     throw new ApiError(403, "You do not own this salon");
   }
 
-  Object.assign(salon, req.body);
+  const allowed = ['name', 'description', 'phone', 'email', 'address', 'category', 'tags', 'images', 'coverImage', 'workingHours', 'slotInterval', 'bookingBufferMinutes', 'advanceBookingDays', 'minimumAdvanceBookingMinutes', 'offersHomeService', 'autoAccept'];
+  for (const key of allowed) if (req.body[key] !== undefined) salon[key] = req.body[key];
   await salon.save();
 
   res.status(200).json({ success: true, data: salon });

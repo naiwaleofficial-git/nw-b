@@ -39,10 +39,17 @@ const bookingSchema = new mongoose.Schema(
     customerId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
+      required: function () { return !this.isWalkIn; },
       index: true,
     },
 
+    isWalkIn: { type: Boolean, default: false },
+    customerName: String,
+    customerPhone: String,
+    barberName: String,
+    chair: { type: Number, min: 1, max: 5 },
+    startedAt: Date,
+    completedAt: Date,
     salonId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Salon",

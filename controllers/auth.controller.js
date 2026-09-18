@@ -18,7 +18,8 @@ export const register = asyncHandler(async (req, res) => {
   // Only allow self-registration as CUSTOMER or SALON_OWNER — never ADMIN
   const safeRole = role === "SALON_OWNER" ? "SALON_OWNER" : "CUSTOMER";
 
-  const user = await User.create({ name, email, phone, password, role: safeRole });
+  if (safeRole === 'SALON_OWNER') throw new ApiError(400, 'Shop owners must register using phone OTP');
+  const user = await User.create({ name, ...(email?.trim() ? { email: email.trim() } : {}), phone, password, role: safeRole });
 
   sendTokenResponse(user, 201, res);
 });

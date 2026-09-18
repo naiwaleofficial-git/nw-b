@@ -1,9 +1,11 @@
+import SlotHold from "../models/SlotHold.model.js";
+import { dayBounds } from "../utils/bookingRules.js";
 import Booking from "../models/Booking.model.js";
 import Salon from "../models/Salon.model.js";
 import ApiError from "../utils/apiError.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { getAvailableSlots } from "../services/availability.service.js";
-import { createBooking, cancelBooking } from "../services/booking.service.js";
+import { createBooking, cancelBooking, changeBooking, createHold, releaseHold, assertOwner } from "../services/booking.service.js";
 import { BOOKING_STATUS } from "../constants/bookingStatus.js";
 
 // GET /api/bookings/available-slots?salonId=&barberId=&serviceIds=a,b&date=2026-08-30
@@ -19,6 +21,7 @@ export const getAvailableSlotsController = asyncHandler(async (req, res) => {
     barberId,
     serviceIds: serviceIds.split(","),
     date,
+    walkIn: req.query.walkIn === 'true' && req.user && (req.user.role === 'SALON_OWNER' || req.user.role === 'ADMIN'),
   });
 
   res.status(200).json({ success: true, data: result });
@@ -26,7 +29,7 @@ export const getAvailableSlotsController = asyncHandler(async (req, res) => {
 
 // POST /api/bookings
 export const createBookingController = asyncHandler(async (req, res) => {
-  const { salonId, barberId, serviceIds, startTime, bookingFor, paymentMethod } = req.body;
+  const { salonId, barberId, serviceIds, startTime, bookingFor, paymentMethod, holdId } = req.body;
 
   if (!salonId || !barberId || !serviceIds?.length || !startTime) {
     throw new ApiError(400, "salonId, barberId, serviceIds and startTime are required");
@@ -40,6 +43,7 @@ export const createBookingController = asyncHandler(async (req, res) => {
     startTime,
     bookingFor: bookingFor || { type: "SELF" },
     paymentMethod,
+    holdId,
   });
 
   res.status(201).json({ success: true, message: "Booking created successfully", data: booking });
@@ -68,10 +72,11 @@ export const getBooking = asyncHandler(async (req, res) => {
 
   if (!booking) throw new ApiError(404, "Booking not found");
 
-  const isCustomer = booking.customerId.toString() === req.user._id.toString();
+  const isCustomer = String(booking.customerId) === req.user._id.toString();
 
-  if (!isCustomer && req.user.role === "CUSTOMER") {
-    throw new ApiError(403, "Not authorized to view this booking");
+  if (!isCustomer) {
+    const salon = await Salon.findById(booking.salonId._id);
+    assertOwner(salon, req.user._id, req.user.role);
   }
 
   res.status(200).json({ success: true, data: booking });
@@ -91,24 +96,11 @@ export const cancelBookingController = asyncHandler(async (req, res) => {
 
 // PUT /api/bookings/:id/status  (SALON_OWNER / ADMIN — move through the lifecycle)
 export const updateBookingStatus = asyncHandler(async (req, res) => {
-  const { status } = req.body;
-
-  if (!Object.values(BOOKING_STATUS).includes(status)) {
-    throw new ApiError(400, "Invalid booking status");
-  }
-
-  const booking = await Booking.findById(req.params.id);
-  if (!booking) throw new ApiError(404, "Booking not found");
-
-  const salon = await Salon.findById(booking.salonId);
-  const owns = salon && salon.ownerId.toString() === req.user._id.toString();
-
-  if (!owns && req.user.role !== "ADMIN") {
-    throw new ApiError(403, "Not authorized to update this booking");
-  }
-
-  booking.bookingStatus = status;
-  await booking.save();
+  const booking = await changeBooking({
+    bookingId: req.params.id, userId: req.user._id, userRole: req.user.role,
+    status: req.body.status === 'CONFIRMED' ? 'ACCEPTED' : req.body.status,
+    reason: req.body.reason, barberId: req.body.barberId, chair: req.body.chair,
+  });
 
   res.status(200).json({ success: true, data: booking });
 });
@@ -127,11 +119,8 @@ export const salonBookings = asyncHandler(async (req, res) => {
   if (status) filter.bookingStatus = status;
 
   if (date) {
-    const start = new Date(date);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(date);
-    end.setHours(23, 59, 59, 999);
-    filter.startTime = { $gte: start, $lte: end };
+    const { start, end } = dayBounds(date);
+    filter.startTime = { $gte: start, $lt: end };
   }
 
   const bookings = await Booking.find(filter)
@@ -140,4 +129,25 @@ export const salonBookings = asyncHandler(async (req, res) => {
     .sort({ startTime: 1 });
 
   res.status(200).json({ success: true, data: bookings });
+});
+
+export const holdSlot = asyncHandler(async (req, res) => {
+  const { salonId, barberId, serviceIds, startTime } = req.body;
+  const data = await createHold({ salonId, barberId, serviceIds, startTime, customerId: req.user._id });
+  res.status(201).json({ success: true, data });
+});
+export const expireHold = asyncHandler(async (req, res) => {
+  res.json({ success: true, data: await releaseHold(req.params.id, req.user) });
+});
+export const listHolds = asyncHandler(async (req, res) => {
+  const salon = await Salon.findById(req.params.salonId);
+  if (!salon) throw new ApiError(404, 'Salon not found');
+  assertOwner(salon, req.user._id, req.user.role);
+  const data = await SlotHold.find({ salonId: salon._id, status: 'active', expiresAt: { $gt: new Date() } }).populate('barberId', 'name');
+  res.json({ success: true, data });
+});
+export const walkInBooking = asyncHandler(async (req, res) => {
+  const { salonId, barberId, serviceIds, startTime, name, phone } = req.body;
+  const data = await createBooking({ salonId, barberId, serviceIds, startTime, bookingFor: { type: 'OTHER', name, phone }, walkIn: true, userId: req.user._id, userRole: req.user.role });
+  res.status(201).json({ success: true, data });
 });

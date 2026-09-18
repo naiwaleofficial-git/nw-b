@@ -38,7 +38,7 @@ export const createReview = asyncHandler(async (req, res) => {
   const booking = await Booking.findById(bookingId);
   if (!booking) throw new ApiError(404, "Booking not found");
 
-  if (booking.customerId.toString() !== req.user._id.toString()) {
+  if (String(booking.customerId) !== req.user._id.toString()) {
     throw new ApiError(403, "You can only review your own bookings");
   }
 

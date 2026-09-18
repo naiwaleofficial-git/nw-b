@@ -1,4 +1,5 @@
 import express from "express";
+import { submitRegistration, uploadPhoto } from '../controllers/registration.controller.js';
 import {
   listSalons,
   nearbySalons,
@@ -18,11 +19,13 @@ import { authorize } from "../middleware/role.middleware.js";
 const router = express.Router();
 
 router.get("/", listSalons);
+router.post('/registration', protect, authorize('SALON_OWNER'), submitRegistration);
+router.post('/photos', protect, authorize('SALON_OWNER'), uploadPhoto);
 router.get("/nearby", nearbySalons);
 router.get("/my/list", protect, authorize("SALON_OWNER", "ADMIN"), mySalons);
 
 router.get("/:id", getSalon);
-router.post("/", protect, authorize("SALON_OWNER", "ADMIN"), createSalon);
+router.post("/", protect, authorize("SALON_OWNER"), submitRegistration);
 router.put("/:id", protect, authorize("SALON_OWNER", "ADMIN"), updateSalon);
 router.delete("/:id", protect, authorize("SALON_OWNER", "ADMIN"), deleteSalon);
 

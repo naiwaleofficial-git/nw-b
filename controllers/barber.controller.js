@@ -43,7 +43,9 @@ export const updateBarber = asyncHandler(async (req, res) => {
 
   await assertOwnsSalon(barber.salonId, req.user);
 
-  Object.assign(barber, req.body);
+  for (const key of ['name', 'phone', 'profileImage', 'experienceYears', 'bio', 'specializations', 'workingHours', 'breaks', 'isActive']) {
+    if (req.body[key] !== undefined) barber[key] = req.body[key];
+  }
   await barber.save();
 
   res.status(200).json({ success: true, data: barber });

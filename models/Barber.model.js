@@ -30,6 +30,7 @@ const barberSchema = new mongoose.Schema(
 
     name: { type: String, required: true, trim: true },
     phone: String,
+    chair: { type: Number, min: 1, max: 5 },
     profileImage: { type: String, default: null },
 
     experienceYears: { type: Number, default: 0 },

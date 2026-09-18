@@ -17,6 +17,11 @@ const workingHoursSchema = new mongoose.Schema(
 
 const salonSchema = new mongoose.Schema(
   {
+    bookingRevision: { type: Number, default: 0 },
+    autoAccept: { type: Boolean, default: false },
+    chairCount: { type: Number, min: 1, max: 5, default: 1 },
+    cancellationDay: String,
+    cancellationCount: { type: Number, default: 0 },
     ownerId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -48,6 +53,9 @@ const salonSchema = new mongoose.Schema(
 
     address: {
       fullAddress: String,
+      district: String,
+      street: String,
+      shopNumber: String,
       landmark: String,
       city: { type: String, index: true },
       state: String,
@@ -59,12 +67,11 @@ const salonSchema = new mongoose.Schema(
       type: {
         type: String,
         enum: ["Point"],
-        required: true,
-        default: "Point",
+        default: undefined,
       },
       coordinates: {
         type: [Number], // [longitude, latitude]
-        required: true,
+        default: undefined,
       },
     },
 
@@ -125,7 +132,7 @@ const salonSchema = new mongoose.Schema(
 
     isApproved: {
       type: Boolean,
-      default: true, // true for seeded/demo data; real signups should default to false
+      default: false,
     },
 
     isActive: {

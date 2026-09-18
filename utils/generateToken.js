@@ -25,6 +25,7 @@ export function sendTokenResponse(user, statusCode, res) {
     email: user.email,
     phone: user.phone,
     role: user.role,
+    isPhoneVerified: user.isPhoneVerified,
     profileImage: user.profileImage,
   };
 

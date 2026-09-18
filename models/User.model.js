@@ -56,6 +56,7 @@ const userSchema = new mongoose.Schema(
     },
 
     address: addressSchema,
+    registrationRevision: { type: Number, default: 0 },
 
     walletBalance: {
       type: Number,

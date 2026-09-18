@@ -4,6 +4,8 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import morgan from "morgan";
 import rateLimit from "express-rate-limit";
+import { fileURLToPath } from 'node:url';
+import SlotHold from './models/SlotHold.model.js';
 
 import connectDB from "./config/db.js";
 import apiRoutes from "./routes/index.js";
@@ -30,6 +32,9 @@ app.use(
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+app.use('/api/uploads', express.static(fileURLToPath(new URL('./uploads/', import.meta.url)), { dotfiles: 'deny', setHeaders: (res) => res.set('X-Content-Type-Options', 'nosniff') }));
+// Expiry is also checked on every read/write; correctness does not depend on this sweep.
+setInterval(() => SlotHold.updateMany({ status: 'active', expiresAt: { $lte: new Date() } }, { status: 'expired' }).catch(() => {}), 30000).unref();
 
 if (process.env.NODE_ENV !== "production") {
   app.use(morgan("dev"));
